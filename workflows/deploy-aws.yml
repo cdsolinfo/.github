@@ -1,0 +1,65 @@
+
+name: Application Deployment to AWS Beanstalk
+
+on:
+  workflow_dispatch:
+    inputs:
+      targetEnv:
+        type: string
+        description: Target environment to use for the deployment
+        required: true
+        default: dev
+      version:
+        type: string
+        description: Specific version to deploy, if not specified, the workflow get it from version.txt in caller repository
+        required: false
+  
+
+permissions:
+  id-token: write
+  contents: write
+
+jobs:
+  deploy:
+    environment: ${{ inputs.targetEnv }}
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Write version
+        if: ${{ inputs.version }}
+        uses: DamianReeves/write-file-action@master
+        with:
+          path: ${{ github.workspace }}/version.txt
+          content: ${{ inputs.version }} 
+
+      - name: Read version
+        id: readversion
+        uses: juliangruber/read-file-action@v1
+        with:
+          path: ${{ github.workspace }}/version.txt
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4.0.1
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          role-session-name: GitHub_to_AWS_via_FederatedOIDC
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Create new ElasticBeanstalk Application Version
+        run: |
+          aws elasticbeanstalk create-application-version \
+          --application-name cdsolutionsinfo \
+          --source-bundle S3Bucket="cdsolutionsinfo-devops",S3Key="packages/site/site-${VERSION}.zip" \
+          --version-label "${VERSION}" \
+          --description "Release ${VERSION}"
+        env:
+          VERSION: ${{ steps.readversion.outputs.content }}
+
+      - name: Deploy new ElasticBeanstalk Application Version
+        run: aws elasticbeanstalk update-environment --environment-name cdsolutionsinfo --version-label "${VERSION}"
+        env:
+          VERSION: ${{ steps.readversion.outputs.content }}
