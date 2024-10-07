@@ -2,6 +2,7 @@
 name: Application Deployment to AWS Beanstalk
 
 on:
+  workflow_call:
   workflow_dispatch:
     inputs:
       targetEnv:
