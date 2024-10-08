@@ -3,10 +3,9 @@ name: Application Deployment to AWS Beanstalk
 
 on:
   workflow_call:
-  workflow_dispatch:
     inputs:
       bucketName:
-        type:: string
+        type: string
         description: S3 Bucket to retrieve package to deploy
       targetEnv:
         type: string
